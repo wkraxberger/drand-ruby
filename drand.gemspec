@@ -13,6 +13,13 @@ Gem::Specification.new do |spec|
   spec.license = "MIT"
   spec.required_ruby_version = ">= 3.2.0"
 
+  spec.metadata = {
+    "source_code_uri" => "https://github.com/wkraxberger/drand-ruby",
+    "bug_tracker_uri" => "https://github.com/wkraxberger/drand-ruby/issues",
+    "changelog_uri"   => "https://github.com/wkraxberger/drand-ruby/blob/main/CHANGELOG.md",
+    "rubygems_mfa_required" => "true"
+  }
+
   spec.files = Dir["lib/**/*.rb", "README.md", "LICENSE", "CHANGELOG.md"]
   spec.require_paths = ["lib"]
 
