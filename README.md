@@ -70,9 +70,11 @@ Rejection sampling over a SHA 256 byte stream, so no modulo bias.
 
 Signature verification isn't implemented yet, so fetched rounds carry `verified: false`. Don't rely on them as cryptographically checked.
 
-Same round + same range = same result. That's the feature, not a bug. The whole point of drand is that the draw is reproducible by anyone. Quicknet ticks every 3 seconds, default mainnet every 30, so repeated calls within that window hand you back the same number until the round advances.
+Same round + same range = same result. That's the feature, not a bug. The whole point of drand is that the draw is reproducible by anyone. Quicknet ticks every 3 seconds, default mainnet every 30, so repeated calls within that window hand you back the exact same number until the round advances.
 
 Because of that, this gem isn't a good fit if you need lots of random numbers in a short amount of time. It's built for things like lottery draws, prize picks, or anything where the randomness has to be auditable. For everyday `rand`-style needs, use `Kernel#rand` or `SecureRandom`.
+
+Heads up on naming: the gem defaults to quicknet, but the 30 second mainnet is the one literally named `default`. It's a little bit confusing, if you want that one, ask for it explicitly with `Drand.chain(:default)`.
 
 ## License
 
