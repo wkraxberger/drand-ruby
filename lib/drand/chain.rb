@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "date"
+require "digest"
 require "time"
 
 require_relative "errors"
@@ -10,9 +11,9 @@ module Drand
   class Chain
     DEFAULT_BASE_URL = "https://api.drand.sh"
 
-    attr_reader :chain_hash, :period, :base_url
+    attr_reader :chain_hash, :period, :base_url, :name
 
-    def initialize(chain_hash:, genesis_time:, period:, base_url: DEFAULT_BASE_URL)
+    def initialize(chain_hash:, genesis_time:, period:, base_url: DEFAULT_BASE_URL, name: "custom")
       raise ArgumentError, "chain_hash required" if chain_hash.nil? || chain_hash.empty?
       raise ArgumentError, "genesis_time must be an Integer" unless genesis_time.is_a?(Integer)
       raise ArgumentError, "period must be a positive Integer" unless period.is_a?(Integer) && period.positive?
@@ -21,6 +22,7 @@ module Drand
       @genesis_unix = genesis_time
       @period = period
       @base_url = base_url
+      @name = name
       @http = HttpClient.new(base_url: base_url, chain_hash: chain_hash)
     end
 
@@ -53,6 +55,21 @@ module Drand
       @http.fetch_round(number).merge(verified: false)
     end
 
+    def draw(range, round: current_round)
+      lo, hi = normalize_range(range)
+      data = self.round(round)
+      {
+        value: sample_in(data[:randomness], lo, hi),
+        range: { min: lo, max: hi },
+        round: data[:round],
+        chain: @name,
+        chain_hash: @chain_hash,
+        randomness: data[:randomness],
+        signature: data[:signature],
+        verified: false
+      }
+    end
+
     private
 
     def to_utc(time)
@@ -62,6 +79,36 @@ module Drand
       else
         raise ArgumentError, "expected Time or DateTime" unless time.respond_to?(:to_time)
         time.to_time.getutc
+      end
+    end
+
+    def normalize_range(range)
+      raise ArgumentError, "range must be a Range" unless range.is_a?(::Range)
+      lo = range.begin
+      hi = range.end
+      raise ArgumentError, "range needs integer bounds" unless lo.is_a?(Integer) && hi.is_a?(Integer)
+      hi -= 1 if range.exclude_end?
+      raise ArgumentError, "range is invalid" if hi <= lo
+      [lo, hi]
+    end
+
+    # Unbiased integer in [lo, hi], via rejection sampling over a SHA256 byte stream.
+    def sample_in(randomness, lo, hi)
+      n = hi - lo + 1
+      width = (n.bit_length + 32).ceildiv(8)
+      space = 1 << (width * 8)
+      cutoff = space - (space % n)
+
+      buf = String.new(encoding: Encoding::BINARY)
+      counter = 0
+      loop do
+        while buf.bytesize < width
+          buf << Digest::SHA256.digest(randomness + counter.to_s)
+          counter += 1
+        end
+        v = buf.byteslice(0, width).unpack1("H*").to_i(16)
+        buf = buf.byteslice(width..)
+        return lo + (v % n) if v < cutoff
       end
     end
   end

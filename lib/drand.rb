@@ -22,6 +22,6 @@ module Drand
   def self.chain(name = :quicknet, base_url: Chain::DEFAULT_BASE_URL)
     config = CHAINS[name.to_sym]
     raise ArgumentError, "unknown chain #{name.inspect}" unless config
-    Chain.new(**config, base_url: base_url)
+    Chain.new(**config, base_url: base_url, name: name.to_s)
   end
 end

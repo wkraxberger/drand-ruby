@@ -13,7 +13,7 @@ RSpec.describe Drand::Chain do
       expect(chain.round_at(Time.at(1_000_100).utc)).to eq(11)
     end
 
-    it "stays in the current round for sub-period offsets" do
+    it "stays in the current round for sub period offsets" do
       expect(chain.round_at(Time.at(1_000_009.9).utc)).to eq(1)
     end
 
@@ -69,7 +69,7 @@ RSpec.describe Drand::Chain do
     let(:hash) { "52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971" }
     let(:q) { Drand.chain(:quicknet) }
 
-    it "fetches a past round from the API" do
+    it "fetches a past round from the api" do
       stub_request(:get, "https://api.drand.sh/#{hash}/public/42")
         .to_return(status: 200, body: { round: 42, randomness: "aa", signature: "bb" }.to_json)
 
@@ -83,6 +83,27 @@ RSpec.describe Drand::Chain do
 
     it "raises RoundError for round 0" do
       expect { q.round(0) }.to raise_error(Drand::RoundError)
+    end
+  end
+
+  describe "#draw" do
+    let(:hash) { "52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971" }
+    let(:q) { Drand.chain(:quicknet) }
+
+    it "is deterministic for the same round and range" do
+      stub_request(:get, "https://api.drand.sh/#{hash}/public/200")
+        .to_return(status: 200, body: { round: 200, randomness: "thisissorandomomg", signature: "*" }.to_json)
+
+      a = q.draw(1..1_000_000, round: 200)[:value]
+      b = q.draw(1..1_000_000, round: 200)[:value]
+      expect(a).to eq(b)
+    end
+
+    it "rejects empty ranges" do
+      stub_request(:get, "https://api.drand.sh/#{hash}/public/201")
+        .to_return(status: 200, body: { round: 201, randomness: "thisisreallyreallyrandom", signature: "*" }.to_json)
+
+      expect { q.draw(5..1, round: 201) }.to raise_error(Drand::ArgumentError)
     end
   end
 end

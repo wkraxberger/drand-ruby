@@ -19,4 +19,10 @@ RSpec.describe Drand do
   it "raises on unknown chain names" do
     expect { Drand.chain(:foo) }.to raise_error(Drand::ArgumentError)
   end
+
+  it "labels a known chain by name and a custom one as 'custom'" do
+    expect(Drand.chain(:quicknet).name).to eq("quicknet")
+    custom = Drand::Chain.new(chain_hash: "abc", genesis_time: 1, period: 3)
+    expect(custom.name).to eq("custom")
+  end
 end
