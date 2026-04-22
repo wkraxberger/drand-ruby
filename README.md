@@ -8,6 +8,12 @@ Mainly a timestamp to round number helper. Optionally fetches round values over 
 
 ## Install
 
+```sh
+gem install drand
+```
+
+Or in a Gemfile:
+
 ```ruby
 gem "drand"
 ```
@@ -19,12 +25,16 @@ Requires Ruby 3.2+. No runtime dependencies.
 ```ruby
 require "drand"
 
-chain = Drand.chain(:quicknet)   # or :default for the 30s mainnet
+chain = Drand.chain(:quicknet)   # or :default for the 30 second mainnet
 
-chain.round_at(Time.utc(2026, 4, 20))   # => 27946612
-chain.time_of(27946612)                 # => 2026-04-20 00:00:00 UTC
-chain.current_round
-chain.round(27946612)                   # hits https://api.drand.sh
+# round math, pure, no network
+chain.round_at(Time.utc(2026, 4, 20))               # => 27946612
+chain.round_at(Time.utc(2026, 4, 20, 12, 30, 45))   # => 27961627
+chain.time_of(27946612)                             # => 2026-04-20 00:00:00 UTC
+chain.current_round                                 # => current round number
+
+# fetch a round's value from the API
+chain.round(27946612)
 # => { round: 27946612, randomness: ..., signature: ..., previous_signature: nil, verified: false }
 ```
 
@@ -39,8 +49,6 @@ Drand::Chain.new(chain_hash: "...", genesis_time: 1_700_000_000, period: 10)
 Publicly verifiable, deterministic integer derived from a drand round. Same round with same range always gives the same value.
 
 ```ruby
-chain = Drand.chain(:quicknet)
-
 chain.draw(1..6)
 # => {
 #      value:      4,
@@ -56,7 +64,7 @@ chain.draw(1..6)
 chain.draw(1..100, round: 27_000_000)   # specific round
 ```
 
-Or use the 30 second mainnet:
+Or on the 30 second mainnet:
 
 ```ruby
 Drand.chain(:default).draw(1..6)
@@ -72,9 +80,9 @@ Signature verification isn't implemented yet, so fetched rounds carry `verified:
 
 Same round + same range = same result. That's the feature, not a bug. The whole point of drand is that the draw is reproducible by anyone. Quicknet ticks every 3 seconds, default mainnet every 30, so repeated calls within that window hand you back the exact same number until the round advances.
 
-Because of that, this gem isn't a good fit if you need lots of random numbers in a short amount of time. It's built for things like lottery draws, prize picks, or anything where the randomness has to be auditable. For everyday `rand`-style needs, use `Kernel#rand` or `SecureRandom`.
+Because of that, this gem isn't a good fit if you need lots of random numbers in a short amount of time. It's built for things like lottery draws, prize picks, or anything where the randomness has to be auditable. For everyday `rand` style needs, use `Kernel#rand` or `SecureRandom`.
 
-Heads up on naming: the gem defaults to quicknet, but the 30 second mainnet is the one literally named `default`. It's a little bit confusing, if you want that one, ask for it explicitly with `Drand.chain(:default)`.
+A note on naming: this gem defaults to `quicknet`, The 30 second mainnet is somewhat confusingly named `default` by drand itself. If you want that chain, select it explicitly with `Drand.chain(:default)`. `quicknet` is the gem default because a 3 second cadence will likely be more useful for most users.
 
 ## License
 
