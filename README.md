@@ -35,7 +35,21 @@ chain.current_round                                 # => current round number
 
 # fetch a round's value from the API
 chain.round(27946612)
-# => { round: 27946612, randomness: ..., signature: ..., previous_signature: nil, verified: false }
+# => { round: 27946612, randomness: ..., signature: ..., previous_signature: nil, verified: false, served_by: "https://api.drand.sh" }
+```
+
+Known chains try several official mirrors (`api.drand.sh`, `api2.drand.sh`, `api3.drand.sh`, `drand.cloudflare.com`) and fall back if one is down. The endpoint that actually responded is returned in the `served_by` key.
+
+Pin to a single endpoint:
+
+```ruby
+Drand.chain(:quicknet, base_url: "https://api.drand.sh")
+```
+
+Supply your own mirror list:
+
+```ruby
+Drand.chain(:quicknet, endpoints: ["https://my-mirror.example", "https://api.drand.sh"])
 ```
 
 Custom chain:
@@ -58,7 +72,8 @@ chain.draw(1..6)
 #      chain_hash: "52db9ba70e...e971",
 #      randomness: "b33732d25aa4...",
 #      signature:  "8c38d1e6f0...",
-#      verified:   false
+#      verified:   false,
+#      served_by:  "https://api.drand.sh"
 #    }
 
 chain.draw(1..100, round: 27_000_000)   # specific round

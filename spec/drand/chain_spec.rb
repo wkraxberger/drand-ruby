@@ -67,7 +67,7 @@ RSpec.describe Drand::Chain do
 
   describe "#round" do
     let(:hash) { "52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971" }
-    let(:q) { Drand.chain(:quicknet) }
+    let(:q) { Drand.chain(:quicknet, base_url: "https://api.drand.sh") }
 
     it "fetches a past round from the api" do
       stub_request(:get, "https://api.drand.sh/#{hash}/public/42")
@@ -75,6 +75,7 @@ RSpec.describe Drand::Chain do
 
       result = q.round(42)
       expect(result).to include(round: 42, randomness: "aa", signature: "bb", verified: false)
+      expect(result[:served_by]).to eq("https://api.drand.sh")
     end
 
     it "raises RoundError for future rounds" do
@@ -88,7 +89,7 @@ RSpec.describe Drand::Chain do
 
   describe "#draw" do
     let(:hash) { "52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971" }
-    let(:q) { Drand.chain(:quicknet) }
+    let(:q) { Drand.chain(:quicknet, base_url: "https://api.drand.sh") }
 
     it "is deterministic for the same round and range" do
       stub_request(:get, "https://api.drand.sh/#{hash}/public/200")
@@ -104,6 +105,17 @@ RSpec.describe Drand::Chain do
         .to_return(status: 200, body: { round: 201, randomness: "thisisreallyreallyrandom", signature: "*" }.to_json)
 
       expect { q.draw(5..1, round: 201) }.to raise_error(Drand::ArgumentError)
+    end
+
+    it "falls back to a mirror when the first endpoint returns 502" do
+      chain = Drand.chain(:quicknet, endpoints: ["https://m1.example", "https://m2.example"])
+      stub_request(:get, "https://m1.example/#{hash}/public/300").to_return(status: 502)
+      stub_request(:get, "https://m2.example/#{hash}/public/300")
+        .to_return(status: 200, body: { round: 300, randomness: "thisissorandomomg", signature: "*" }.to_json)
+
+      result = chain.draw(1..100, round: 300)
+      expect(result[:value]).to be_between(1, 100)
+      expect(result[:served_by]).to eq("https://m2.example")
     end
   end
 end

@@ -9,11 +9,11 @@ require_relative "http_client"
 
 module Drand
   class Chain
-    DEFAULT_BASE_URL = "https://api.drand.sh"
+    DEFAULT_ENDPOINTS = ["https://api.drand.sh"].freeze
 
-    attr_reader :chain_hash, :period, :base_url, :name
+    attr_reader :chain_hash, :period, :endpoints, :name
 
-    def initialize(chain_hash:, genesis_time:, period:, base_url: DEFAULT_BASE_URL, name: "custom")
+    def initialize(chain_hash:, genesis_time:, period:, base_url: nil, endpoints: nil, name: "custom")
       raise ArgumentError, "chain_hash required" if chain_hash.nil? || chain_hash.empty?
       raise ArgumentError, "genesis_time must be an Integer" unless genesis_time.is_a?(Integer)
       raise ArgumentError, "period must be a positive Integer" unless period.is_a?(Integer) && period.positive?
@@ -21,9 +21,14 @@ module Drand
       @chain_hash = chain_hash
       @genesis_unix = genesis_time
       @period = period
-      @base_url = base_url
       @name = name
-      @http = HttpClient.new(base_url: base_url, chain_hash: chain_hash)
+      @endpoints = resolve_endpoints(base_url, endpoints)
+      @http = HttpClient.new(endpoints: @endpoints, chain_hash: chain_hash)
+    end
+
+    # Kept for backward compatibility; returns the first endpoint.
+    def base_url
+      @endpoints.first
     end
 
     def genesis_time
@@ -66,11 +71,27 @@ module Drand
         chain_hash: @chain_hash,
         randomness: data[:randomness],
         signature: data[:signature],
-        verified: false
+        verified: false,
+        served_by: data[:served_by]
       }
     end
 
     private
+
+    def resolve_endpoints(base_url, endpoints)
+      if base_url && endpoints
+        raise ArgumentError, "pass either base_url: or endpoints:, not both"
+      end
+      list =
+        if endpoints
+          Array(endpoints)
+        elsif base_url
+          [base_url]
+        else
+          DEFAULT_ENDPOINTS
+        end
+      list.map { |u| u.to_s }.freeze
+    end
 
     def to_utc(time)
       case time
