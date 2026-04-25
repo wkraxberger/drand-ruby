@@ -4,6 +4,7 @@ module Drand
   class Error < StandardError; end
   class ArgumentError < Error; end
   class RoundError < Error; end
+  class VerificationError < Error; end
 
   class NetworkError < Error
     attr_reader :status

@@ -6,14 +6,16 @@ require "time"
 
 require_relative "errors"
 require_relative "http_client"
+require_relative "verifier"
 
 module Drand
   class Chain
     DEFAULT_ENDPOINTS = ["https://api.drand.sh"].freeze
 
-    attr_reader :chain_hash, :period, :endpoints, :name
+    attr_reader :chain_hash, :period, :endpoints, :name, :scheme, :public_key
 
-    def initialize(chain_hash:, genesis_time:, period:, base_url: nil, endpoints: nil, name: "custom")
+    def initialize(chain_hash:, genesis_time:, period:, base_url: nil, endpoints: nil,
+                   name: "custom", scheme: nil, public_key: nil)
       raise ArgumentError, "chain_hash required" if chain_hash.nil? || chain_hash.empty?
       raise ArgumentError, "genesis_time must be an Integer" unless genesis_time.is_a?(Integer)
       raise ArgumentError, "period must be a positive Integer" unless period.is_a?(Integer) && period.positive?
@@ -22,8 +24,14 @@ module Drand
       @genesis_unix = genesis_time
       @period = period
       @name = name
+      @scheme = scheme
+      @public_key = public_key
       @endpoints = resolve_endpoints(base_url, endpoints)
       @http = HttpClient.new(endpoints: @endpoints, chain_hash: chain_hash)
+    end
+
+    def verifiable?
+      !@scheme.nil? && !@public_key.nil?
     end
 
     # Kept for backward compatibility; returns the first endpoint.
@@ -52,17 +60,19 @@ module Drand
       round_at(Time.now.utc)
     end
 
-    def round(number)
+    def round(number, verify: verifiable?)
       raise ArgumentError, "round must be an Integer" unless number.is_a?(Integer)
       raise RoundError, "round must be >= 1" if number < 1
       raise RoundError, "round #{number} is in the future" if number > current_round
 
-      @http.fetch_round(number).merge(verified: false)
+      data = @http.fetch_round(number)
+      data[:verified] = verify ? verify!(data) : false
+      data
     end
 
-    def draw(range, round: current_round)
+    def draw(range, round: current_round, verify: verifiable?)
       lo, hi = normalize_range(range)
-      data = self.round(round)
+      data = self.round(round, verify: verify)
       {
         value: sample_in(data[:randomness], lo, hi),
         range: { min: lo, max: hi },
@@ -71,12 +81,31 @@ module Drand
         chain_hash: @chain_hash,
         randomness: data[:randomness],
         signature: data[:signature],
-        verified: false,
+        verified: data[:verified],
         served_by: data[:served_by]
       }
     end
 
+    def verify(round_data)
+      unless verifiable?
+        raise VerificationError, "chain has no public_key/scheme; cannot verify"
+      end
+      Verifier.verify(
+        scheme: @scheme,
+        public_key: @public_key,
+        round: round_data.fetch(:round),
+        signature: round_data.fetch(:signature),
+        previous_signature: round_data[:previous_signature]
+      )
+    end
+
     private
+
+    def verify!(round_data)
+      ok = verify(round_data)
+      raise VerificationError, "signature verification failed for round #{round_data[:round]}" unless ok
+      true
+    end
 
     def resolve_endpoints(base_url, endpoints)
       if base_url && endpoints
