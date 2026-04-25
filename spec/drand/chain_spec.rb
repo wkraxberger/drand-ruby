@@ -73,17 +73,33 @@ RSpec.describe Drand::Chain do
       stub_request(:get, "https://api.drand.sh/#{hash}/public/42")
         .to_return(status: 200, body: { round: 42, randomness: "aa", signature: "bb" }.to_json)
 
-      result = q.round(42)
+      result = q.round(42, verify: false)
       expect(result).to include(round: 42, randomness: "aa", signature: "bb", verified: false)
       expect(result[:served_by]).to eq("https://api.drand.sh")
     end
 
     it "raises RoundError for future rounds" do
-      expect { q.round(q.current_round + 10_000) }.to raise_error(Drand::RoundError, /future/)
+      expect { q.round(q.current_round + 10_000, verify: false) }.to raise_error(Drand::RoundError, /future/)
     end
 
     it "raises RoundError for round 0" do
-      expect { q.round(0) }.to raise_error(Drand::RoundError)
+      expect { q.round(0, verify: false) }.to raise_error(Drand::RoundError)
+    end
+
+    it "verifies a real signed round on quicknet by default" do
+      sig = "b44679b9a59af2ec876b1a6b1ad52ea9b1615fc3982b19576350f93447cb1125e342b73a8dd2bacbe47e4b6b63ed5e39"
+      stub_request(:get, "https://api.drand.sh/#{hash}/public/1000")
+        .to_return(status: 200, body: { round: 1000, randomness: "fe290beca10872ef2fb164d2aa4442de4566183ec51c56ff3cd603d930e54fdd", signature: sig }.to_json)
+
+      result = q.round(1000)
+      expect(result[:verified]).to be(true)
+    end
+
+    it "raises VerificationError when the signature is bogus and verify is on" do
+      stub_request(:get, "https://api.drand.sh/#{hash}/public/77")
+        .to_return(status: 200, body: { round: 77, randomness: "aa", signature: "bb" }.to_json)
+
+      expect { q.round(77) }.to raise_error(Drand::VerificationError)
     end
   end
 
@@ -95,8 +111,8 @@ RSpec.describe Drand::Chain do
       stub_request(:get, "https://api.drand.sh/#{hash}/public/200")
         .to_return(status: 200, body: { round: 200, randomness: "thisissorandomomg", signature: "*" }.to_json)
 
-      a = q.draw(1..1_000_000, round: 200)[:value]
-      b = q.draw(1..1_000_000, round: 200)[:value]
+      a = q.draw(1..1_000_000, round: 200, verify: false)[:value]
+      b = q.draw(1..1_000_000, round: 200, verify: false)[:value]
       expect(a).to eq(b)
     end
 
@@ -104,7 +120,7 @@ RSpec.describe Drand::Chain do
       stub_request(:get, "https://api.drand.sh/#{hash}/public/201")
         .to_return(status: 200, body: { round: 201, randomness: "thisisreallyreallyrandom", signature: "*" }.to_json)
 
-      expect { q.draw(5..1, round: 201) }.to raise_error(Drand::ArgumentError)
+      expect { q.draw(5..1, round: 201, verify: false) }.to raise_error(Drand::ArgumentError)
     end
 
     it "falls back to a mirror when the first endpoint returns 502" do
@@ -113,7 +129,7 @@ RSpec.describe Drand::Chain do
       stub_request(:get, "https://m2.example/#{hash}/public/300")
         .to_return(status: 200, body: { round: 300, randomness: "thisissorandomomg", signature: "*" }.to_json)
 
-      result = chain.draw(1..100, round: 300)
+      result = chain.draw(1..100, round: 300, verify: false)
       expect(result[:value]).to be_between(1, 100)
       expect(result[:served_by]).to eq("https://m2.example")
     end
