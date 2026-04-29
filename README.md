@@ -1,5 +1,9 @@
 # drand
 
+[![Gem Version](https://img.shields.io/gem/v/drand.svg)](https://rubygems.org/gems/drand)
+[![Downloads](https://img.shields.io/gem/dt/drand.svg)](https://rubygems.org/gems/drand)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 Ruby client for [drand](https://drand.love), the public randomness beacon run by the League of Entropy.
 
 > Unofficial. Not affiliated with the drand project or the League of Entropy.
