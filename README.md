@@ -8,7 +8,7 @@ Ruby client for [drand](https://drand.love), the public randomness beacon run by
 
 > Unofficial. Not affiliated with the drand project or the League of Entropy.
 
-Mainly a timestamp to round number helper. Optionally fetches round values over HTTP.
+Round math, HTTP fetch with mirror fallback, and BLS signature verification of drand beacons.
 
 ## Install
 
